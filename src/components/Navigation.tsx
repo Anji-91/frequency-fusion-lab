@@ -1,7 +1,7 @@
 
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Music, Waveform } from 'lucide-react';
+import { Music, AudioWaveform } from 'lucide-react';
 
 export const Navigation = () => {
   const location = useLocation();
@@ -24,7 +24,7 @@ export const Navigation = () => {
                 asChild
               >
                 <Link to="/" className="flex items-center space-x-2">
-                  <Waveform className="h-4 w-4" />
+                  <AudioWaveform className="h-4 w-4" />
                   <span>Frequency Board</span>
                 </Link>
               </Button>

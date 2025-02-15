@@ -228,28 +228,48 @@ export const BeatBoard = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-10 gap-1 mb-8">
-          {grid.map((row, rowIndex) => (
-            row.map((cell, colIndex) => (
-              <button
-                key={`${rowIndex}-${colIndex}`}
-                onClick={() => handleCellClick(rowIndex, colIndex)}
-                className={`
-                  aspect-square rounded-md border-2 transition-all duration-200
-                  ${cell.isActive 
-                    ? 'bg-primary border-primary animate-pulse-glow' 
-                    : 'bg-card border-accent hover:border-primary'}
-                  ${currentColumn === colIndex ? 'ring-2 ring-primary ring-offset-2' : ''}
-                `}
-              >
-                {cell.isActive && (
-                  <span className="text-xs text-primary-foreground">
-                    {cell.name}
-                  </span>
-                )}
-              </button>
-            ))
-          ))}
+        <div className="relative">
+          {/* Moving line indicator */}
+          <div 
+            className="absolute top-0 bottom-0 w-0.5 bg-primary transition-all duration-200 z-10"
+            style={{ 
+              left: `${(currentColumn * 100) / 10}%`,
+              transform: 'translateX(-50%)',
+              opacity: isPlaying ? 1 : 0
+            }}
+          />
+
+          <div className="grid grid-cols-10 gap-1 mb-8">
+            {grid.map((row, rowIndex) => (
+              row.map((cell, colIndex) => (
+                <button
+                  key={`${rowIndex}-${colIndex}`}
+                  onClick={() => handleCellClick(rowIndex, colIndex)}
+                  className={`
+                    group relative aspect-square rounded-md border-2 transition-all duration-200 overflow-hidden
+                    ${cell.isActive 
+                      ? 'bg-primary border-primary animate-pulse-glow' 
+                      : 'bg-card border-accent hover:border-primary'}
+                    ${currentColumn === colIndex ? 'ring-2 ring-primary ring-offset-2' : ''}
+                  `}
+                >
+                  {cell.isActive && (
+                    <div className="absolute inset-0 flex items-center justify-center p-1">
+                      <div className="text-[0.6rem] text-primary-foreground text-center leading-tight">
+                        <div className="font-semibold">{cell.name}</div>
+                        <div className="opacity-75">{cell.frequency} Hz</div>
+                      </div>
+                    </div>
+                  )}
+                  {!cell.isActive && (
+                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-50 transition-opacity">
+                      <div className="text-[0.6rem] text-foreground">Click to add beat</div>
+                    </div>
+                  )}
+                </button>
+              ))
+            ))}
+          </div>
         </div>
       </div>
     </div>

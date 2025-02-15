@@ -1,5 +1,5 @@
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Play, Pause, Save, Trash2, Zap } from 'lucide-react';
 import * as Slider from '@radix-ui/react-slider';
@@ -74,6 +74,69 @@ export const BeatBoard = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolume] = useState(0.5);
   const [currentColumn, setCurrentColumn] = useState(0);
+  
+  // Audio Context setup
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const oscillatorsRef = useRef<OscillatorNode[]>([]);
+  const gainNodesRef = useRef<GainNode[]>([]);
+
+  // Effect for handling playback
+  useEffect(() => {
+    let intervalId: number;
+
+    if (isPlaying) {
+      // Initialize Audio Context if not already done
+      if (!audioContextRef.current) {
+        audioContextRef.current = new AudioContext();
+      }
+
+      const playColumn = (column: number) => {
+        // Stop previous oscillators
+        oscillatorsRef.current.forEach(osc => osc.stop());
+        oscillatorsRef.current = [];
+        gainNodesRef.current = [];
+
+        // Play all active frequencies in the current column
+        grid.forEach(row => {
+          const cell = row[column];
+          if (cell.isActive) {
+            const oscillator = audioContextRef.current!.createOscillator();
+            const gainNode = audioContextRef.current!.createGain();
+
+            oscillator.frequency.value = cell.frequency;
+            gainNode.gain.value = volume;
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContextRef.current!.destination);
+
+            oscillator.start();
+            oscillatorsRef.current.push(oscillator);
+            gainNodesRef.current.push(gainNode);
+          }
+        });
+      };
+
+      // Start playback loop
+      intervalId = window.setInterval(() => {
+        playColumn(currentColumn);
+        setCurrentColumn(prev => (prev + 1) % 10);
+      }, 500); // 500ms per column = 120 BPM
+
+      return () => {
+        window.clearInterval(intervalId);
+        // Stop all oscillators when cleaning up
+        oscillatorsRef.current.forEach(osc => osc.stop());
+        oscillatorsRef.current = [];
+      };
+    }
+  }, [isPlaying, grid, volume, currentColumn]);
+
+  // Effect for handling volume changes
+  useEffect(() => {
+    gainNodesRef.current.forEach(gain => {
+      gain.gain.value = volume;
+    });
+  }, [volume]);
 
   const handleCellClick = useCallback((row: number, col: number) => {
     if (!selectedFrequency) return;
@@ -128,17 +191,19 @@ export const BeatBoard = () => {
   };
 
   const togglePlay = () => {
-    setIsPlaying(!isPlaying);
+    setIsPlaying(prev => !prev);
     if (!isPlaying) {
       setCurrentColumn(0);
       toast.success("Playback started");
     } else {
+      // Stop all oscillators when pausing
+      oscillatorsRef.current.forEach(osc => osc.stop());
+      oscillatorsRef.current = [];
       toast.info("Playback paused");
     }
   };
 
   const handleSave = () => {
-    // Save functionality would go here
     console.log('Saving beat pattern:', grid);
     toast.success("Beat pattern saved");
   };

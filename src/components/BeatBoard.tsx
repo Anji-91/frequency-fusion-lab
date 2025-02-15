@@ -1,8 +1,9 @@
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Play, Pause, Save } from 'lucide-react';
+import { Play, Pause, Save, Trash2, Zap } from 'lucide-react';
 import * as Slider from '@radix-ui/react-slider';
+import { toast } from "sonner";
 
 interface Beat {
   frequency: number;
@@ -25,6 +26,26 @@ const createInitialGrid = (frequencies: { freq: number; name: string }[]): BeatG
     }
   }
   return grid;
+};
+
+const presets = {
+  meditation: {
+    name: "Meditation",
+    description: "Calm theta waves with healing frequencies",
+    frequencies: [
+      { freq: 6, name: "Theta" },
+      { freq: 432, name: "432 Hz" },
+      { freq: 528, name: "528 Hz" }
+    ]
+  },
+  focus: {
+    name: "Focus",
+    description: "Beta waves for concentration",
+    frequencies: [
+      { freq: 20, name: "Beta" },
+      { freq: 396, name: "396 Hz" }
+    ]
+  }
 };
 
 const allFrequencies = [
@@ -54,32 +75,72 @@ export const BeatBoard = () => {
   const [volume, setVolume] = useState(0.5);
   const [currentColumn, setCurrentColumn] = useState(0);
 
-  const handleCellClick = (row: number, col: number) => {
+  const handleCellClick = useCallback((row: number, col: number) => {
     if (!selectedFrequency) return;
 
     setGrid(prevGrid => {
       const newGrid = [...prevGrid];
       newGrid[row] = [...newGrid[row]];
-      newGrid[row][col] = {
-        frequency: selectedFrequency.freq,
-        name: selectedFrequency.name,
-        isActive: true
-      };
+      const currentCell = newGrid[row][col];
+      
+      // Toggle the cell if it's already active with the same frequency
+      if (currentCell.isActive && currentCell.frequency === selectedFrequency.freq) {
+        newGrid[row][col] = {
+          frequency: 0,
+          name: '',
+          isActive: false
+        };
+      } else {
+        newGrid[row][col] = {
+          frequency: selectedFrequency.freq,
+          name: selectedFrequency.name,
+          isActive: true
+        };
+      }
       return newGrid;
     });
+  }, [selectedFrequency]);
+
+  const clearGrid = () => {
+    setGrid(createInitialGrid(allFrequencies));
+    toast.success("Grid cleared");
+  };
+
+  const applyPreset = (preset: keyof typeof presets) => {
+    const selectedPreset = presets[preset];
+    setGrid(prevGrid => {
+      const newGrid = createInitialGrid(allFrequencies);
+      
+      // Apply preset pattern
+      selectedPreset.frequencies.forEach((freq, index) => {
+        if (index < 10) {
+          newGrid[index][0] = {
+            frequency: freq.freq,
+            name: freq.name,
+            isActive: true
+          };
+        }
+      });
+      
+      return newGrid;
+    });
+    toast.success(`Applied ${presets[preset].name} preset`);
   };
 
   const togglePlay = () => {
     setIsPlaying(!isPlaying);
     if (!isPlaying) {
       setCurrentColumn(0);
-      // Start playback logic would go here
+      toast.success("Playback started");
+    } else {
+      toast.info("Playback paused");
     }
   };
 
   const handleSave = () => {
     // Save functionality would go here
     console.log('Saving beat pattern:', grid);
+    toast.success("Beat pattern saved");
   };
 
   return (
@@ -93,7 +154,35 @@ export const BeatBoard = () => {
         </header>
 
         <div className="mb-8">
-          <h2 className="text-xl font-semibold mb-4">Available Frequencies</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold">Available Frequencies</h2>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={clearGrid}
+                className="gap-2"
+              >
+                <Trash2 className="w-4 h-4" />
+                Clear Grid
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => applyPreset('meditation')}
+                className="gap-2"
+              >
+                <Zap className="w-4 h-4" />
+                Meditation Preset
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => applyPreset('focus')}
+                className="gap-2"
+              >
+                <Zap className="w-4 h-4" />
+                Focus Preset
+              </Button>
+            </div>
+          </div>
           <div className="flex flex-wrap gap-2">
             {allFrequencies.map((freq) => (
               <Button
@@ -148,7 +237,7 @@ export const BeatBoard = () => {
                 className={`
                   aspect-square rounded-md border-2 transition-all duration-200
                   ${cell.isActive 
-                    ? 'bg-primary border-primary' 
+                    ? 'bg-primary border-primary animate-pulse-glow' 
                     : 'bg-card border-accent hover:border-primary'}
                   ${currentColumn === colIndex ? 'ring-2 ring-primary ring-offset-2' : ''}
                 `}

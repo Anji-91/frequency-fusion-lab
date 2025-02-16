@@ -12,9 +12,30 @@ interface Beat {
 
 type BeatGrid = Beat[][];
 
+const brainwaveFrequencies = [
+  { freq: 2, name: "Delta" },
+  { freq: 6, name: "Theta" },
+  { freq: 10, name: "Alpha" },
+  { freq: 20, name: "Beta" },
+  { freq: 40, name: "Gamma" }
+];
+
+const allFrequencies = [
+  { freq: 174, name: "174 Hz" },
+  { freq: 285, name: "285 Hz" },
+  { freq: 396, name: "396 Hz" },
+  { freq: 417, name: "417 Hz" },
+  { freq: 432, name: "432 Hz" },
+  { freq: 528, name: "528 Hz" },
+  { freq: 639, name: "639 Hz" },
+  { freq: 741, name: "741 Hz" },
+  { freq: 852, name: "852 Hz" },
+  { freq: 963, name: "963 Hz" }
+];
+
 const createInitialGrid = (frequencies: { freq: number; name: string }[]): BeatGrid => {
   const grid: BeatGrid = [];
-  for (let i = 0; i < 15; i++) {
+  for (let i = 0; i < 10; i++) {
     grid[i] = [];
     for (let j = 0; j < 10; j++) {
       grid[i][j] = {
@@ -47,34 +68,19 @@ const presets = {
   }
 };
 
-const allFrequencies = [
-  { freq: 174, name: "174 Hz" },
-  { freq: 285, name: "285 Hz" },
-  { freq: 396, name: "396 Hz" },
-  { freq: 417, name: "417 Hz" },
-  { freq: 432, name: "432 Hz" },
-  { freq: 528, name: "528 Hz" },
-  { freq: 639, name: "639 Hz" },
-  { freq: 741, name: "741 Hz" },
-  { freq: 852, name: "852 Hz" },
-  { freq: 963, name: "963 Hz" },
-  { freq: 2, name: "Delta" },
-  { freq: 6, name: "Theta" },
-  { freq: 10, name: "Alpha" },
-  { freq: 20, name: "Beta" },
-  { freq: 40, name: "Gamma" }
-];
-
 export const BeatBoard = () => {
   const [grid, setGrid] = useState<BeatGrid>(createInitialGrid(allFrequencies));
   const [selectedFrequency, setSelectedFrequency] = useState<{ freq: number; name: string } | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolume] = useState(0.5);
   const [currentColumn, setCurrentColumn] = useState(0);
+  const [activeWave, setActiveWave] = useState<string | null>(null);
   
   const audioContextRef = useRef<AudioContext | null>(null);
   const oscillatorsRef = useRef<OscillatorNode[]>([]);
   const gainNodesRef = useRef<GainNode[]>([]);
+  const brainwaveOscillatorRef = useRef<OscillatorNode | null>(null);
+  const brainwaveGainRef = useRef<GainNode | null>(null);
 
   useEffect(() => {
     let intervalId: number;
@@ -194,37 +200,87 @@ export const BeatBoard = () => {
     toast.success("Beat pattern saved");
   };
 
+  const playBrainwave = (frequency: number, name: string) => {
+    if (!audioContextRef.current) {
+      audioContextRef.current = new AudioContext();
+    }
+
+    if (brainwaveOscillatorRef.current) {
+      brainwaveOscillatorRef.current.stop();
+      brainwaveOscillatorRef.current = null;
+    }
+
+    if (activeWave === name) {
+      setActiveWave(null);
+      return;
+    }
+
+    const oscillator = audioContextRef.current.createOscillator();
+    const gainNode = audioContextRef.current.createGain();
+
+    oscillator.frequency.value = frequency;
+    gainNode.gain.value = volume;
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContextRef.current.destination);
+
+    oscillator.start();
+    brainwaveOscillatorRef.current = oscillator;
+    brainwaveGainRef.current = gainNode;
+    setActiveWave(name);
+    toast.success(`Playing ${name} wave (${frequency} Hz)`);
+  };
+
   return (
     <div className="min-h-screen bg-[#0A0A0A] p-6">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
-          <div className="flex items-center gap-4 mb-4">
-            <Button
-              onClick={togglePlay}
-              variant="default"
-              size="icon"
-              className="w-12 h-12 rounded-full bg-cyan-500 hover:bg-cyan-600"
-            >
-              {isPlaying ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6" />}
-            </Button>
-            <div className="flex items-center gap-2 flex-1">
-              <Slider.Root
-                className="relative flex items-center select-none touch-none w-full h-5"
-                value={[volume]}
-                onValueChange={(newVolume) => setVolume(newVolume[0])}
-                max={1}
-                step={0.01}
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center gap-4 mb-4">
+              <Button
+                onClick={togglePlay}
+                variant="default"
+                size="icon"
+                className="w-12 h-12 rounded-full bg-cyan-500 hover:bg-cyan-600"
               >
-                <Slider.Track className="bg-gray-800 relative grow rounded-full h-1">
-                  <Slider.Range className="absolute bg-cyan-500 rounded-full h-full" />
-                </Slider.Track>
-                <Slider.Thumb className="block h-4 w-4 rounded-full bg-cyan-500 shadow-lg" />
-              </Slider.Root>
+                {isPlaying ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6" />}
+              </Button>
+              <div className="flex items-center gap-2 flex-1">
+                <Slider.Root
+                  className="relative flex items-center select-none touch-none w-full h-5"
+                  value={[volume]}
+                  onValueChange={(newVolume) => setVolume(newVolume[0])}
+                  max={1}
+                  step={0.01}
+                >
+                  <Slider.Track className="bg-gray-800 relative grow rounded-full h-1">
+                    <Slider.Range className="absolute bg-cyan-500 rounded-full h-full" />
+                  </Slider.Track>
+                  <Slider.Thumb className="block h-4 w-4 rounded-full bg-cyan-500 shadow-lg" />
+                </Slider.Root>
+              </div>
+              <Button onClick={handleSave} variant="outline" className="gap-2 border-cyan-500 text-cyan-500 hover:bg-cyan-500/10">
+                <Save className="w-4 h-4" />
+                Save Beat
+              </Button>
             </div>
-            <Button onClick={handleSave} variant="outline" className="gap-2 border-cyan-500 text-cyan-500 hover:bg-cyan-500/10">
-              <Save className="w-4 h-4" />
-              Save Beat
-            </Button>
+
+            <div className="flex gap-2 mb-4">
+              {brainwaveFrequencies.map((wave) => (
+                <Button
+                  key={wave.freq}
+                  onClick={() => playBrainwave(wave.freq, wave.name)}
+                  variant="outline"
+                  className={`gap-2 ${
+                    activeWave === wave.name
+                      ? 'bg-cyan-500 text-white'
+                      : 'border-cyan-500 text-cyan-500 hover:bg-cyan-500/10'
+                  }`}
+                >
+                  {wave.name}
+                </Button>
+              ))}
+            </div>
           </div>
         </div>
 

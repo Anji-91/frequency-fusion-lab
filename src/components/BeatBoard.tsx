@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Play, Pause, Save, Trash2, Zap } from 'lucide-react';
@@ -49,23 +48,12 @@ const presets = {
 };
 
 const allFrequencies = [
-  // Solfeggio frequencies
-  { freq: 174, name: "174 Hz" },
-  { freq: 285, name: "285 Hz" },
-  { freq: 396, name: "396 Hz" },
-  { freq: 417, name: "417 Hz" },
-  { freq: 432, name: "432 Hz" },
-  { freq: 528, name: "528 Hz" },
-  { freq: 639, name: "639 Hz" },
-  { freq: 741, name: "741 Hz" },
-  { freq: 852, name: "852 Hz" },
-  { freq: 963, name: "963 Hz" },
-  // Brainwave frequencies
-  { freq: 2, name: "Delta" },
-  { freq: 6, name: "Theta" },
-  { freq: 10, name: "Alpha" },
-  { freq: 20, name: "Beta" },
-  { freq: 40, name: "Gamma" }
+  { freq: 440, name: "sine 440Hz" },
+  { freq: 330, name: "square 330Hz" },
+  { freq: 220, name: "square 220Hz" },
+  { freq: 165, name: "triangle 165Hz" },
+  { freq: 110, name: "triangle 110Hz" },
+  { freq: 55, name: "sawtooth 55Hz" }
 ];
 
 export const BeatBoard = () => {
@@ -75,28 +63,23 @@ export const BeatBoard = () => {
   const [volume, setVolume] = useState(0.5);
   const [currentColumn, setCurrentColumn] = useState(0);
   
-  // Audio Context setup
   const audioContextRef = useRef<AudioContext | null>(null);
   const oscillatorsRef = useRef<OscillatorNode[]>([]);
   const gainNodesRef = useRef<GainNode[]>([]);
 
-  // Effect for handling playback
   useEffect(() => {
     let intervalId: number;
 
     if (isPlaying) {
-      // Initialize Audio Context if not already done
       if (!audioContextRef.current) {
         audioContextRef.current = new AudioContext();
       }
 
       const playColumn = (column: number) => {
-        // Stop previous oscillators
         oscillatorsRef.current.forEach(osc => osc.stop());
         oscillatorsRef.current = [];
         gainNodesRef.current = [];
 
-        // Play all active frequencies in the current column
         grid.forEach(row => {
           const cell = row[column];
           if (cell.isActive) {
@@ -116,22 +99,19 @@ export const BeatBoard = () => {
         });
       };
 
-      // Start playback loop
       intervalId = window.setInterval(() => {
         playColumn(currentColumn);
         setCurrentColumn(prev => (prev + 1) % 10);
-      }, 500); // 500ms per column = 120 BPM
+      }, 500);
 
       return () => {
         window.clearInterval(intervalId);
-        // Stop all oscillators when cleaning up
         oscillatorsRef.current.forEach(osc => osc.stop());
         oscillatorsRef.current = [];
       };
     }
   }, [isPlaying, grid, volume, currentColumn]);
 
-  // Effect for handling volume changes
   useEffect(() => {
     gainNodesRef.current.forEach(gain => {
       gain.gain.value = volume;
@@ -146,7 +126,6 @@ export const BeatBoard = () => {
       newGrid[row] = [...newGrid[row]];
       const currentCell = newGrid[row][col];
       
-      // Toggle the cell if it's already active with the same frequency
       if (currentCell.isActive && currentCell.frequency === selectedFrequency.freq) {
         newGrid[row][col] = {
           frequency: 0,
@@ -174,7 +153,6 @@ export const BeatBoard = () => {
     setGrid(prevGrid => {
       const newGrid = createInitialGrid(allFrequencies);
       
-      // Apply preset pattern
       selectedPreset.frequencies.forEach((freq, index) => {
         if (index < 10) {
           newGrid[index][0] = {
@@ -196,7 +174,6 @@ export const BeatBoard = () => {
       setCurrentColumn(0);
       toast.success("Playback started");
     } else {
-      // Stop all oscillators when pausing
       oscillatorsRef.current.forEach(osc => osc.stop());
       oscillatorsRef.current = [];
       toast.info("Playback paused");
@@ -209,66 +186,15 @@ export const BeatBoard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background p-6">
+    <div className="min-h-screen bg-[#0A0A0A] p-6">
       <div className="max-w-7xl mx-auto">
-        <header className="mb-8 text-center">
-          <h1 className="text-4xl font-bold text-foreground mb-4">Beat Sequencer</h1>
-          <p className="text-lg text-muted-foreground">
-            Create your own beats by selecting frequencies and placing them on the grid
-          </p>
-        </header>
-
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold">Available Frequencies</h2>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                onClick={clearGrid}
-                className="gap-2"
-              >
-                <Trash2 className="w-4 h-4" />
-                Clear Grid
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => applyPreset('meditation')}
-                className="gap-2"
-              >
-                <Zap className="w-4 h-4" />
-                Meditation Preset
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => applyPreset('focus')}
-                className="gap-2"
-              >
-                <Zap className="w-4 h-4" />
-                Focus Preset
-              </Button>
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {allFrequencies.map((freq) => (
-              <Button
-                key={freq.freq}
-                variant={selectedFrequency?.freq === freq.freq ? "default" : "outline"}
-                onClick={() => setSelectedFrequency(freq)}
-                className="transition-all duration-200"
-              >
-                {freq.name}
-              </Button>
-            ))}
-          </div>
-        </div>
-
         <div className="mb-8">
           <div className="flex items-center gap-4 mb-4">
             <Button
               onClick={togglePlay}
               variant="default"
               size="icon"
-              className="w-12 h-12 rounded-full"
+              className="w-12 h-12 rounded-full bg-cyan-500 hover:bg-cyan-600"
             >
               {isPlaying ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6" />}
             </Button>
@@ -280,61 +206,88 @@ export const BeatBoard = () => {
                 max={1}
                 step={0.01}
               >
-                <Slider.Track className="bg-secondary relative grow rounded-full h-1">
-                  <Slider.Range className="absolute bg-primary rounded-full h-full" />
+                <Slider.Track className="bg-gray-800 relative grow rounded-full h-1">
+                  <Slider.Range className="absolute bg-cyan-500 rounded-full h-full" />
                 </Slider.Track>
-                <Slider.Thumb className="block h-4 w-4 rounded-full bg-primary shadow-lg" />
+                <Slider.Thumb className="block h-4 w-4 rounded-full bg-cyan-500 shadow-lg" />
               </Slider.Root>
             </div>
-            <Button onClick={handleSave} variant="outline" className="gap-2">
+            <Button onClick={handleSave} variant="outline" className="gap-2 border-cyan-500 text-cyan-500 hover:bg-cyan-500/10">
               <Save className="w-4 h-4" />
               Save Beat
             </Button>
           </div>
         </div>
 
-        <div className="relative">
-          {/* Moving line indicator */}
-          <div 
-            className="absolute top-0 bottom-0 w-0.5 bg-primary transition-all duration-200 z-10"
-            style={{ 
-              left: `${(currentColumn * 100) / 10}%`,
-              transform: 'translateX(-50%)',
-              opacity: isPlaying ? 1 : 0
-            }}
-          />
-
-          <div className="grid grid-cols-10 gap-1 mb-8">
-            {grid.map((row, rowIndex) => (
-              row.map((cell, colIndex) => (
-                <button
-                  key={`${rowIndex}-${colIndex}`}
-                  onClick={() => handleCellClick(rowIndex, colIndex)}
-                  className={`
-                    group relative aspect-square rounded-md border-2 transition-all duration-200 overflow-hidden
-                    ${cell.isActive 
-                      ? 'bg-primary border-primary animate-pulse-glow' 
-                      : 'bg-card border-accent hover:border-primary'}
-                    ${currentColumn === colIndex ? 'ring-2 ring-primary ring-offset-2' : ''}
-                  `}
-                >
-                  {cell.isActive && (
-                    <div className="absolute inset-0 flex items-center justify-center p-1">
-                      <div className="text-[0.6rem] text-primary-foreground text-center leading-tight">
-                        <div className="font-semibold">{cell.name}</div>
-                        <div className="opacity-75">{cell.frequency} Hz</div>
-                      </div>
-                    </div>
-                  )}
-                  {!cell.isActive && (
-                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-50 transition-opacity">
-                      <div className="text-[0.6rem] text-foreground">Click to add beat</div>
-                    </div>
-                  )}
-                </button>
-              ))
+        <div className="relative flex">
+          <div className="w-48 flex flex-col gap-1 pr-4">
+            {allFrequencies.map((freq, index) => (
+              <div 
+                key={freq.freq}
+                className="h-16 flex items-center"
+              >
+                <span className="text-cyan-500 text-sm font-mono">{freq.name}</span>
+              </div>
             ))}
           </div>
+
+          <div className="flex-1 relative">
+            <div 
+              className="absolute top-0 bottom-0 w-0.5 bg-cyan-500 transition-all duration-200 z-10"
+              style={{ 
+                left: `${(currentColumn * 100) / 10}%`,
+                transform: 'translateX(-50%)',
+                opacity: isPlaying ? 1 : 0
+              }}
+            />
+
+            <div className="grid grid-cols-10 gap-1">
+              {grid.map((row, rowIndex) => (
+                <div key={rowIndex} className="contents">
+                  {row.map((cell, colIndex) => (
+                    <button
+                      key={`${rowIndex}-${colIndex}`}
+                      onClick={() => handleCellClick(rowIndex, colIndex)}
+                      className={`
+                        relative h-16 rounded border transition-all duration-200
+                        ${cell.isActive 
+                          ? 'bg-cyan-500/20 border-cyan-500' 
+                          : 'bg-transparent border-gray-800 hover:border-cyan-500/50'}
+                        ${currentColumn === colIndex ? 'ring-1 ring-cyan-500 ring-offset-1 ring-offset-[#0A0A0A]' : ''}
+                      `}
+                    />
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-8 flex justify-end gap-2">
+          <Button
+            variant="outline"
+            onClick={clearGrid}
+            className="gap-2 border-cyan-500 text-cyan-500 hover:bg-cyan-500/10"
+          >
+            <Trash2 className="w-4 h-4" />
+            Clear Grid
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => applyPreset('meditation')}
+            className="gap-2 border-cyan-500 text-cyan-500 hover:bg-cyan-500/10"
+          >
+            <Zap className="w-4 h-4" />
+            Meditation Preset
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => applyPreset('focus')}
+            className="gap-2 border-cyan-500 text-cyan-500 hover:bg-cyan-500/10"
+          >
+            <Zap className="w-4 h-4" />
+            Focus Preset
+          </Button>
         </div>
       </div>
     </div>

@@ -14,7 +14,7 @@ type BeatGrid = Beat[][];
 
 const createInitialGrid = (frequencies: { freq: number; name: string }[]): BeatGrid => {
   const grid: BeatGrid = [];
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 15; i++) {
     grid[i] = [];
     for (let j = 0; j < 10; j++) {
       grid[i][j] = {
@@ -48,12 +48,21 @@ const presets = {
 };
 
 const allFrequencies = [
-  { freq: 440, name: "sine 440Hz" },
-  { freq: 330, name: "square 330Hz" },
-  { freq: 220, name: "square 220Hz" },
-  { freq: 165, name: "triangle 165Hz" },
-  { freq: 110, name: "triangle 110Hz" },
-  { freq: 55, name: "sawtooth 55Hz" }
+  { freq: 174, name: "174 Hz" },
+  { freq: 285, name: "285 Hz" },
+  { freq: 396, name: "396 Hz" },
+  { freq: 417, name: "417 Hz" },
+  { freq: 432, name: "432 Hz" },
+  { freq: 528, name: "528 Hz" },
+  { freq: 639, name: "639 Hz" },
+  { freq: 741, name: "741 Hz" },
+  { freq: 852, name: "852 Hz" },
+  { freq: 963, name: "963 Hz" },
+  { freq: 2, name: "Delta" },
+  { freq: 6, name: "Theta" },
+  { freq: 10, name: "Alpha" },
+  { freq: 20, name: "Beta" },
+  { freq: 40, name: "Gamma" }
 ];
 
 export const BeatBoard = () => {
@@ -219,7 +228,7 @@ export const BeatBoard = () => {
           </div>
         </div>
 
-        <div className="relative flex">
+        <div className="relative flex overflow-x-auto">
           <div className="w-48 flex flex-col gap-1 pr-4">
             {allFrequencies.map((freq, index) => (
               <div 

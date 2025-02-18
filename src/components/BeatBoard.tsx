@@ -80,6 +80,7 @@ export const BeatBoard = () => {
   const [selectedFrequency, setSelectedFrequency] = useState<{ freq: number; name: string }>(allFrequencies[0]);
   const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolume] = useState(0.5);
+  const [bpm, setBpm] = useState(120);
   const [currentColumn, setCurrentColumn] = useState(0);
   const [activeWave, setActiveWave] = useState<string | null>(null);
   const [activeNatureSound, setActiveNatureSound] = useState<string | null>(null);
@@ -123,10 +124,12 @@ export const BeatBoard = () => {
         });
       };
 
+      const intervalMs = 60000 / bpm;
+
       intervalId = window.setInterval(() => {
         playColumn(currentColumn);
         setCurrentColumn(prev => (prev + 1) % 10);
-      }, 500);
+      }, intervalMs);
 
       return () => {
         window.clearInterval(intervalId);
@@ -134,7 +137,7 @@ export const BeatBoard = () => {
         oscillatorsRef.current = [];
       };
     }
-  }, [isPlaying, grid, volume, currentColumn]);
+  }, [isPlaying, grid, volume, currentColumn, bpm]);
 
   useEffect(() => {
     gainNodesRef.current.forEach(gain => {
@@ -274,19 +277,39 @@ export const BeatBoard = () => {
               >
                 {isPlaying ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6" />}
               </Button>
-              <div className="flex items-center gap-2 flex-1">
-                <Slider.Root
-                  className="relative flex items-center select-none touch-none w-full h-5"
-                  value={[volume]}
-                  onValueChange={(newVolume) => setVolume(newVolume[0])}
-                  max={1}
-                  step={0.01}
-                >
-                  <Slider.Track className="bg-gray-800 relative grow rounded-full h-1">
-                    <Slider.Range className="absolute bg-cyan-500 rounded-full h-full" />
-                  </Slider.Track>
-                  <Slider.Thumb className="block h-4 w-4 rounded-full bg-cyan-500 shadow-lg" />
-                </Slider.Root>
+              <div className="flex flex-col gap-2 flex-1">
+                <div className="flex items-center gap-2 w-full">
+                  <span className="text-xs text-gray-400">Volume</span>
+                  <Slider.Root
+                    className="relative flex items-center select-none touch-none w-full h-5"
+                    value={[volume]}
+                    onValueChange={(newVolume) => setVolume(newVolume[0])}
+                    max={1}
+                    step={0.01}
+                  >
+                    <Slider.Track className="bg-gray-800 relative grow rounded-full h-1">
+                      <Slider.Range className="absolute bg-cyan-500 rounded-full h-full" />
+                    </Slider.Track>
+                    <Slider.Thumb className="block h-4 w-4 rounded-full bg-cyan-500 shadow-lg" />
+                  </Slider.Root>
+                </div>
+                <div className="flex items-center gap-2 w-full">
+                  <span className="text-xs text-gray-400">BPM</span>
+                  <Slider.Root
+                    className="relative flex items-center select-none touch-none w-full h-5"
+                    value={[bpm]}
+                    onValueChange={(newBpm) => setBpm(newBpm[0])}
+                    min={60}
+                    max={240}
+                    step={1}
+                  >
+                    <Slider.Track className="bg-gray-800 relative grow rounded-full h-1">
+                      <Slider.Range className="absolute bg-cyan-500 rounded-full h-full" />
+                    </Slider.Track>
+                    <Slider.Thumb className="block h-4 w-4 rounded-full bg-cyan-500 shadow-lg" />
+                  </Slider.Root>
+                  <span className="text-xs text-cyan-500 min-w-[3ch]">{bpm}</span>
+                </div>
               </div>
               <Button onClick={handleSave} variant="outline" className="gap-2 border-cyan-500 text-cyan-500 hover:bg-cyan-500/10">
                 <Save className="w-4 h-4" />

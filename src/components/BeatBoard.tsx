@@ -33,6 +33,13 @@ const allFrequencies = [
   { freq: 963, name: "963 Hz" }
 ];
 
+const natureSounds = [
+  { name: "Rain", url: "/sounds/rain.mp3" },
+  { name: "Thunder", url: "/sounds/thunder.mp3" },
+  { name: "River", url: "/sounds/river.mp3" },
+  { name: "Forest", url: "/sounds/forest.mp3" }
+];
+
 const createInitialGrid = (frequencies: { freq: number; name: string }[]): BeatGrid => {
   const grid: BeatGrid = [];
   for (let i = 0; i < 10; i++) {
@@ -70,17 +77,19 @@ const presets = {
 
 export const BeatBoard = () => {
   const [grid, setGrid] = useState<BeatGrid>(createInitialGrid(allFrequencies));
-  const [selectedFrequency, setSelectedFrequency] = useState<{ freq: number; name: string } | null>(null);
+  const [selectedFrequency, setSelectedFrequency] = useState<{ freq: number; name: string }>(allFrequencies[0]);
   const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolume] = useState(0.5);
   const [currentColumn, setCurrentColumn] = useState(0);
   const [activeWave, setActiveWave] = useState<string | null>(null);
+  const [activeNatureSound, setActiveNatureSound] = useState<string | null>(null);
   
   const audioContextRef = useRef<AudioContext | null>(null);
   const oscillatorsRef = useRef<OscillatorNode[]>([]);
   const gainNodesRef = useRef<GainNode[]>([]);
   const brainwaveOscillatorRef = useRef<OscillatorNode | null>(null);
   const brainwaveGainRef = useRef<GainNode | null>(null);
+  const natureSoundRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     let intervalId: number;
@@ -157,6 +166,26 @@ export const BeatBoard = () => {
       return newGrid;
     });
   }, [selectedFrequency]);
+
+  const playNatureSound = (name: string, url: string) => {
+    if (natureSoundRef.current) {
+      natureSoundRef.current.pause();
+      natureSoundRef.current = null;
+    }
+
+    if (activeNatureSound === name) {
+      setActiveNatureSound(null);
+      return;
+    }
+
+    const audio = new Audio(url);
+    audio.loop = true;
+    audio.volume = volume;
+    audio.play();
+    natureSoundRef.current = audio;
+    setActiveNatureSound(name);
+    toast.success(`Playing ${name} sound`);
+  };
 
   const clearGrid = () => {
     setGrid(createInitialGrid(allFrequencies));
@@ -281,18 +310,40 @@ export const BeatBoard = () => {
                 </Button>
               ))}
             </div>
+
+            <div className="flex gap-2 mb-4">
+              {natureSounds.map((sound) => (
+                <Button
+                  key={sound.name}
+                  onClick={() => playNatureSound(sound.name, sound.url)}
+                  variant="outline"
+                  className={`gap-2 ${
+                    activeNatureSound === sound.name
+                      ? 'bg-cyan-500 text-white'
+                      : 'border-cyan-500 text-cyan-500 hover:bg-cyan-500/10'
+                  }`}
+                >
+                  {sound.name}
+                </Button>
+              ))}
+            </div>
           </div>
         </div>
 
         <div className="relative flex overflow-x-auto">
           <div className="w-48 flex flex-col gap-1 pr-4">
-            {allFrequencies.map((freq, index) => (
-              <div 
+            {allFrequencies.map((freq) => (
+              <button
                 key={freq.freq}
-                className="h-16 flex items-center"
+                onClick={() => setSelectedFrequency(freq)}
+                className={`h-16 flex items-center px-4 rounded transition-all duration-200 ${
+                  selectedFrequency?.freq === freq.freq
+                    ? 'bg-cyan-500/20 text-cyan-500'
+                    : 'text-cyan-500 hover:bg-cyan-500/10'
+                }`}
               >
-                <span className="text-cyan-500 text-sm font-mono">{freq.name}</span>
-              </div>
+                <span className="text-sm font-mono">{freq.name}</span>
+              </button>
             ))}
           </div>
 

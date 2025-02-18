@@ -21,16 +21,16 @@ const brainwaveFrequencies = [
 ];
 
 const allFrequencies = [
-  { freq: 174, name: "174 Hz" },
-  { freq: 285, name: "285 Hz" },
-  { freq: 396, name: "396 Hz" },
-  { freq: 417, name: "417 Hz" },
-  { freq: 432, name: "432 Hz" },
-  { freq: 528, name: "528 Hz" },
-  { freq: 639, name: "639 Hz" },
-  { freq: 741, name: "741 Hz" },
-  { freq: 852, name: "852 Hz" },
-  { freq: 963, name: "963 Hz" }
+  { freq: 880, name: "880 Hz Sine", type: "sine" },
+  { freq: 440, name: "440 Hz Sine", type: "sine" },
+  { freq: 330, name: "330 Hz Square", type: "square" },
+  { freq: 220, name: "220 Hz Square", type: "square" },
+  { freq: 165, name: "165 Hz Triangle", type: "triangle" },
+  { freq: 110, name: "110 Hz Triangle", type: "triangle" },
+  { freq: 55, name: "55 Hz Sawtooth", type: "sawtooth" },
+  { freq: 33, name: "33 Hz Sawtooth", type: "sawtooth" },
+  { freq: 22, name: "22 Hz Sine", type: "sine" },
+  { freq: 11, name: "11 Hz Sine", type: "sine" }
 ];
 
 const natureSounds = [
@@ -230,7 +230,8 @@ export const BeatBoard = () => {
               const oscillator = context.createOscillator();
               const gainNode = context.createGain();
 
-              oscillator.type = 'sine';
+              const freqConfig = allFrequencies.find(f => f.freq === cell.frequency);
+              oscillator.type = (freqConfig?.type as OscillatorType) || 'sine';
               oscillator.frequency.setValueAtTime(cell.frequency, context.currentTime);
               gainNode.gain.setValueAtTime(volume, context.currentTime);
 
@@ -308,7 +309,7 @@ export const BeatBoard = () => {
           const oscillator = context.createOscillator();
           const gainNode = context.createGain();
           
-          oscillator.type = 'sine';
+          oscillator.type = selectedFrequency.type as OscillatorType;
           oscillator.frequency.setValueAtTime(selectedFrequency.freq, context.currentTime);
           gainNode.gain.setValueAtTime(volume, context.currentTime);
           

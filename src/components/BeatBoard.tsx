@@ -75,6 +75,110 @@ const presets = {
   }
 };
 
+const createPinkNoise = (context: AudioContext) => {
+  const bufferSize = 4096;
+  const pinkNoiseNode = context.createScriptProcessor(bufferSize, 1, 1);
+  let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+
+  pinkNoiseNode.onaudioprocess = (e) => {
+    const output = e.outputBuffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      const white = Math.random() * 2 - 1;
+      b0 = 0.99886 * b0 + white * 0.0555179;
+      b1 = 0.99332 * b1 + white * 0.0750759;
+      b2 = 0.96900 * b2 + white * 0.1538520;
+      b3 = 0.86650 * b3 + white * 0.3104856;
+      b4 = 0.55000 * b4 + white * 0.5329522;
+      b5 = -0.7616 * b5 - white * 0.0168980;
+      output[i] = b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362;
+      output[i] *= 0.11;
+      b6 = white * 0.115926;
+    }
+  };
+  return pinkNoiseNode;
+};
+
+const createBrownNoise = (context: AudioContext) => {
+  const bufferSize = 4096;
+  const brownNoiseNode = context.createScriptProcessor(bufferSize, 1, 1);
+  let lastOut = 0;
+
+  brownNoiseNode.onaudioprocess = (e) => {
+    const output = e.outputBuffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      const white = Math.random() * 2 - 1;
+      output[i] = (lastOut + (0.02 * white)) / 1.02;
+      lastOut = output[i];
+      output[i] *= 3.5;
+    }
+  };
+  return brownNoiseNode;
+};
+
+const natureSoundGenerators = {
+  Rain: (context: AudioContext, gainNode: GainNode) => {
+    const rainGain = context.createGain();
+    rainGain.gain.value = 0.5;
+    const rainNoise = createPinkNoise(context);
+    rainNoise.connect(rainGain);
+    rainGain.connect(gainNode);
+    return rainNoise;
+  },
+  Thunder: (context: AudioContext, gainNode: GainNode) => {
+    const thunderGain = context.createGain();
+    thunderGain.gain.value = 0;
+    const thunder = createBrownNoise(context);
+    thunder.connect(thunderGain);
+    thunderGain.connect(gainNode);
+    
+    const now = context.currentTime;
+    thunderGain.gain.setValueAtTime(0, now);
+    thunderGain.gain.linearRampToValueAtTime(1, now + 0.2);
+    thunderGain.gain.exponentialRampToValueAtTime(0.3, now + 0.3);
+    thunderGain.gain.exponentialRampToValueAtTime(0.00001, now + 2);
+    
+    setInterval(() => {
+      const now = context.currentTime;
+      thunderGain.gain.setValueAtTime(0, now);
+      thunderGain.gain.linearRampToValueAtTime(1, now + 0.2);
+      thunderGain.gain.exponentialRampToValueAtTime(0.3, now + 0.3);
+      thunderGain.gain.exponentialRampToValueAtTime(0.00001, now + 2);
+    }, 8000);
+
+    return thunder;
+  },
+  River: (context: AudioContext, gainNode: GainNode) => {
+    const riverGain = context.createGain();
+    riverGain.gain.value = 0.3;
+    const river = createBrownNoise(context);
+    
+    const filter = context.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.value = 500;
+    filter.Q.value = 0.7;
+    
+    river.connect(filter);
+    filter.connect(riverGain);
+    riverGain.connect(gainNode);
+    return river;
+  },
+  Forest: (context: AudioContext, gainNode: GainNode) => {
+    const forestGain = context.createGain();
+    forestGain.gain.value = 0.2;
+    const forest = createPinkNoise(context);
+    
+    const filter = context.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 200;
+    filter.Q.value = 0.9;
+    
+    forest.connect(filter);
+    filter.connect(forestGain);
+    forestGain.connect(gainNode);
+    return forest;
+  }
+};
+
 export const BeatBoard = () => {
   const [grid, setGrid] = useState<BeatGrid>(createInitialGrid(allFrequencies));
   const [selectedFrequency, setSelectedFrequency] = useState<{ freq: number; name: string }>(allFrequencies[0]);
@@ -91,6 +195,8 @@ export const BeatBoard = () => {
   const brainwaveOscillatorRef = useRef<OscillatorNode | null>(null);
   const brainwaveGainRef = useRef<GainNode | null>(null);
   const natureSoundRef = useRef<HTMLAudioElement | null>(null);
+  const natureSoundNodesRef = useRef<ScriptProcessorNode[]>([]);
+  const natureSoundGainRef = useRef<GainNode | null>(null);
 
   const initAudioContext = () => {
     if (!audioContextRef.current) {
@@ -169,8 +275,8 @@ export const BeatBoard = () => {
     if (brainwaveGainRef.current) {
       brainwaveGainRef.current.gain.setValueAtTime(volume, audioContextRef.current?.currentTime || 0);
     }
-    if (natureSoundRef.current) {
-      natureSoundRef.current.volume = volume;
+    if (natureSoundGainRef.current) {
+      natureSoundGainRef.current.gain.setValueAtTime(volume, audioContextRef.current?.currentTime || 0);
     }
   }, [volume]);
 
@@ -262,43 +368,61 @@ export const BeatBoard = () => {
     }
   };
 
-  const playNatureSound = (name: string, url: string) => {
-    if (natureSoundRef.current) {
-      natureSoundRef.current.pause();
-      natureSoundRef.current = null;
-      if (activeNatureSound === name) {
-        setActiveNatureSound(null);
-        return;
+  const playNatureSound = (name: string) => {
+    const context = initAudioContext();
+
+    natureSoundNodesRef.current.forEach(node => {
+      try {
+        node.disconnect();
+      } catch (e) {
+        console.error('Error stopping nature sound:', e);
       }
+    });
+    natureSoundNodesRef.current = [];
+
+    if (activeNatureSound === name) {
+      setActiveNatureSound(null);
+      return;
     }
 
     try {
-      const audio = new Audio(url);
-      audio.loop = true;
-      audio.volume = volume;
+      if (!natureSoundGainRef.current) {
+        natureSoundGainRef.current = context.createGain();
+        natureSoundGainRef.current.connect(context.destination);
+      }
       
-      audio.addEventListener('canplaythrough', () => {
-        audio.play()
-          .then(() => {
-            natureSoundRef.current = audio;
-            setActiveNatureSound(name);
-            toast.success(`Playing ${name} sound`);
-          })
-          .catch((error) => {
-            console.error('Error playing nature sound:', error);
-            toast.error(`Failed to play ${name} sound`);
-          });
-      });
-
-      audio.addEventListener('error', (e) => {
-        console.error('Error loading nature sound:', e);
-        toast.error(`Failed to load ${name} sound`);
-      });
+      natureSoundGainRef.current.gain.value = volume;
+      
+      const generator = natureSoundGenerators[name as keyof typeof natureSoundGenerators];
+      if (generator) {
+        const soundNode = generator(context, natureSoundGainRef.current);
+        natureSoundNodesRef.current.push(soundNode);
+        setActiveNatureSound(name);
+        toast.success(`Playing ${name} sound`);
+      }
     } catch (e) {
-      console.error('Error setting up nature sound:', e);
-      toast.error(`Failed to setup ${name} sound`);
+      console.error('Error generating nature sound:', e);
+      toast.error(`Failed to generate ${name} sound`);
     }
   };
+
+  useEffect(() => {
+    if (natureSoundGainRef.current) {
+      natureSoundGainRef.current.gain.setValueAtTime(volume, audioContextRef.current?.currentTime || 0);
+    }
+  }, [volume]);
+
+  useEffect(() => {
+    return () => {
+      natureSoundNodesRef.current.forEach(node => {
+        try {
+          node.disconnect();
+        } catch (e) {
+          console.error('Error cleaning up nature sound:', e);
+        }
+      });
+    };
+  }, []);
 
   const clearGrid = () => {
     setGrid(createInitialGrid(allFrequencies));
@@ -422,18 +546,18 @@ export const BeatBoard = () => {
             </div>
 
             <div className="flex gap-2 mb-4">
-              {natureSounds.map((sound) => (
+              {Object.keys(natureSoundGenerators).map((sound) => (
                 <Button
-                  key={sound.name}
-                  onClick={() => playNatureSound(sound.name, sound.url)}
+                  key={sound}
+                  onClick={() => playNatureSound(sound)}
                   variant="outline"
                   className={`gap-2 ${
-                    activeNatureSound === sound.name
+                    activeNatureSound === sound
                       ? 'bg-cyan-500 text-white'
                       : 'border-cyan-500 text-cyan-500 hover:bg-cyan-500/10'
                   }`}
                 >
-                  {sound.name}
+                  {sound}
                 </Button>
               ))}
             </div>

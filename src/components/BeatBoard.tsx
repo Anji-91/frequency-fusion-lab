@@ -92,40 +92,56 @@ export const BeatBoard = () => {
   const brainwaveGainRef = useRef<GainNode | null>(null);
   const natureSoundRef = useRef<HTMLAudioElement | null>(null);
 
+  const initAudioContext = () => {
+    if (!audioContextRef.current) {
+      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+    return audioContextRef.current;
+  };
+
   useEffect(() => {
     let intervalId: number;
 
     if (isPlaying) {
-      if (!audioContextRef.current) {
-        audioContextRef.current = new AudioContext();
-      }
+      const context = initAudioContext();
 
       const playColumn = (column: number) => {
-        oscillatorsRef.current.forEach(osc => osc.stop());
+        oscillatorsRef.current.forEach(osc => {
+          try {
+            osc.stop();
+            osc.disconnect();
+          } catch (e) {
+            console.error('Error stopping oscillator:', e);
+          }
+        });
         oscillatorsRef.current = [];
         gainNodesRef.current = [];
 
         grid.forEach(row => {
           const cell = row[column];
-          if (cell.isActive) {
-            const oscillator = audioContextRef.current!.createOscillator();
-            const gainNode = audioContextRef.current!.createGain();
+          if (cell.isActive && cell.frequency > 0) {
+            try {
+              const oscillator = context.createOscillator();
+              const gainNode = context.createGain();
 
-            oscillator.frequency.value = cell.frequency;
-            gainNode.gain.value = volume;
+              oscillator.type = 'sine';
+              oscillator.frequency.setValueAtTime(cell.frequency, context.currentTime);
+              gainNode.gain.setValueAtTime(volume, context.currentTime);
 
-            oscillator.connect(gainNode);
-            gainNode.connect(audioContextRef.current!.destination);
+              oscillator.connect(gainNode);
+              gainNode.connect(context.destination);
 
-            oscillator.start();
-            oscillatorsRef.current.push(oscillator);
-            gainNodesRef.current.push(gainNode);
+              oscillator.start();
+              oscillatorsRef.current.push(oscillator);
+              gainNodesRef.current.push(gainNode);
+            } catch (e) {
+              console.error('Error playing frequency:', e);
+            }
           }
         });
       };
 
       const intervalMs = 60000 / bpm;
-
       intervalId = window.setInterval(() => {
         playColumn(currentColumn);
         setCurrentColumn(prev => (prev + 1) % 10);
@@ -133,7 +149,14 @@ export const BeatBoard = () => {
 
       return () => {
         window.clearInterval(intervalId);
-        oscillatorsRef.current.forEach(osc => osc.stop());
+        oscillatorsRef.current.forEach(osc => {
+          try {
+            osc.stop();
+            osc.disconnect();
+          } catch (e) {
+            console.error('Error cleaning up oscillator:', e);
+          }
+        });
         oscillatorsRef.current = [];
       };
     }
@@ -141,12 +164,20 @@ export const BeatBoard = () => {
 
   useEffect(() => {
     gainNodesRef.current.forEach(gain => {
-      gain.gain.value = volume;
+      gain.gain.setValueAtTime(volume, audioContextRef.current?.currentTime || 0);
     });
+    if (brainwaveGainRef.current) {
+      brainwaveGainRef.current.gain.setValueAtTime(volume, audioContextRef.current?.currentTime || 0);
+    }
+    if (natureSoundRef.current) {
+      natureSoundRef.current.volume = volume;
+    }
   }, [volume]);
 
   const handleCellClick = useCallback((row: number, col: number) => {
     if (!selectedFrequency) return;
+    
+    initAudioContext();
 
     setGrid(prevGrid => {
       const newGrid = [...prevGrid];
@@ -165,29 +196,108 @@ export const BeatBoard = () => {
           name: selectedFrequency.name,
           isActive: true
         };
+
+        try {
+          const context = audioContextRef.current!;
+          const oscillator = context.createOscillator();
+          const gainNode = context.createGain();
+          
+          oscillator.type = 'sine';
+          oscillator.frequency.setValueAtTime(selectedFrequency.freq, context.currentTime);
+          gainNode.gain.setValueAtTime(volume, context.currentTime);
+          
+          oscillator.connect(gainNode);
+          gainNode.connect(context.destination);
+          
+          oscillator.start();
+          setTimeout(() => {
+            oscillator.stop();
+            oscillator.disconnect();
+          }, 100);
+        } catch (e) {
+          console.error('Error playing preview sound:', e);
+        }
       }
       return newGrid;
     });
-  }, [selectedFrequency]);
+  }, [selectedFrequency, volume]);
+
+  const playBrainwave = (frequency: number, name: string) => {
+    const context = initAudioContext();
+
+    if (brainwaveOscillatorRef.current) {
+      try {
+        brainwaveOscillatorRef.current.stop();
+        brainwaveOscillatorRef.current.disconnect();
+        brainwaveOscillatorRef.current = null;
+      } catch (e) {
+        console.error('Error stopping brainwave:', e);
+      }
+    }
+
+    if (activeWave === name) {
+      setActiveWave(null);
+      return;
+    }
+
+    try {
+      const oscillator = context.createOscillator();
+      const gainNode = context.createGain();
+
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(frequency, context.currentTime);
+      gainNode.gain.setValueAtTime(volume, context.currentTime);
+
+      oscillator.connect(gainNode);
+      gainNode.connect(context.destination);
+
+      oscillator.start();
+      brainwaveOscillatorRef.current = oscillator;
+      brainwaveGainRef.current = gainNode;
+      setActiveWave(name);
+      toast.success(`Playing ${name} wave (${frequency} Hz)`);
+    } catch (e) {
+      console.error('Error playing brainwave:', e);
+      toast.error(`Failed to play ${name} wave`);
+    }
+  };
 
   const playNatureSound = (name: string, url: string) => {
     if (natureSoundRef.current) {
       natureSoundRef.current.pause();
       natureSoundRef.current = null;
+      if (activeNatureSound === name) {
+        setActiveNatureSound(null);
+        return;
+      }
     }
 
-    if (activeNatureSound === name) {
-      setActiveNatureSound(null);
-      return;
-    }
+    try {
+      const audio = new Audio(url);
+      audio.loop = true;
+      audio.volume = volume;
+      
+      audio.addEventListener('canplaythrough', () => {
+        audio.play()
+          .then(() => {
+            natureSoundRef.current = audio;
+            setActiveNatureSound(name);
+            toast.success(`Playing ${name} sound`);
+          })
+          .catch((error) => {
+            console.error('Error playing nature sound:', error);
+            toast.error(`Failed to play ${name} sound`);
+          });
+      });
 
-    const audio = new Audio(url);
-    audio.loop = true;
-    audio.volume = volume;
-    audio.play();
-    natureSoundRef.current = audio;
-    setActiveNatureSound(name);
-    toast.success(`Playing ${name} sound`);
+      audio.addEventListener('error', (e) => {
+        console.error('Error loading nature sound:', e);
+        toast.error(`Failed to load ${name} sound`);
+      });
+    } catch (e) {
+      console.error('Error setting up nature sound:', e);
+      toast.error(`Failed to setup ${name} sound`);
+    }
   };
 
   const clearGrid = () => {
@@ -216,51 +326,28 @@ export const BeatBoard = () => {
   };
 
   const togglePlay = () => {
-    setIsPlaying(prev => !prev);
     if (!isPlaying) {
+      initAudioContext();
       setCurrentColumn(0);
       toast.success("Playback started");
     } else {
-      oscillatorsRef.current.forEach(osc => osc.stop());
+      oscillatorsRef.current.forEach(osc => {
+        try {
+          osc.stop();
+          osc.disconnect();
+        } catch (e) {
+          console.error('Error stopping oscillator:', e);
+        }
+      });
       oscillatorsRef.current = [];
       toast.info("Playback paused");
     }
+    setIsPlaying(prev => !prev);
   };
 
   const handleSave = () => {
     console.log('Saving beat pattern:', grid);
     toast.success("Beat pattern saved");
-  };
-
-  const playBrainwave = (frequency: number, name: string) => {
-    if (!audioContextRef.current) {
-      audioContextRef.current = new AudioContext();
-    }
-
-    if (brainwaveOscillatorRef.current) {
-      brainwaveOscillatorRef.current.stop();
-      brainwaveOscillatorRef.current = null;
-    }
-
-    if (activeWave === name) {
-      setActiveWave(null);
-      return;
-    }
-
-    const oscillator = audioContextRef.current.createOscillator();
-    const gainNode = audioContextRef.current.createGain();
-
-    oscillator.frequency.value = frequency;
-    gainNode.gain.value = volume;
-
-    oscillator.connect(gainNode);
-    gainNode.connect(audioContextRef.current.destination);
-
-    oscillator.start();
-    brainwaveOscillatorRef.current = oscillator;
-    brainwaveGainRef.current = gainNode;
-    setActiveWave(name);
-    toast.success(`Playing ${name} wave (${frequency} Hz)`);
   };
 
   return (

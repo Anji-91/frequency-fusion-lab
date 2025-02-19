@@ -4,10 +4,17 @@ import { Play, Pause, Save, Trash2, Zap } from 'lucide-react';
 import * as Slider from '@radix-ui/react-slider';
 import { toast } from "sonner";
 
+interface Frequency {
+  freq: number;
+  name: string;
+  type: OscillatorType;
+}
+
 interface Beat {
   frequency: number;
   name: string;
   isActive: boolean;
+  type?: OscillatorType;
 }
 
 type BeatGrid = Beat[][];
@@ -20,7 +27,7 @@ const brainwaveFrequencies = [
   { freq: 40, name: "Gamma" }
 ];
 
-const allFrequencies = [
+const allFrequencies: Frequency[] = [
   { freq: 880, name: "880 Hz Sine", type: "sine" },
   { freq: 440, name: "440 Hz Sine", type: "sine" },
   { freq: 330, name: "330 Hz Square", type: "square" },
@@ -40,7 +47,7 @@ const natureSounds = [
   { name: "Forest", url: "/sounds/forest.mp3" }
 ];
 
-const createInitialGrid = (frequencies: { freq: number; name: string }[]): BeatGrid => {
+const createInitialGrid = (frequencies: Frequency[]): BeatGrid => {
   const grid: BeatGrid = [];
   for (let i = 0; i < 10; i++) {
     grid[i] = [];
@@ -181,7 +188,7 @@ const natureSoundGenerators = {
 
 export const BeatBoard = () => {
   const [grid, setGrid] = useState<BeatGrid>(createInitialGrid(allFrequencies));
-  const [selectedFrequency, setSelectedFrequency] = useState<{ freq: number; name: string }>(allFrequencies[0]);
+  const [selectedFrequency, setSelectedFrequency] = useState<Frequency>(allFrequencies[0]);
   const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolume] = useState(0.5);
   const [bpm, setBpm] = useState(120);
@@ -301,7 +308,8 @@ export const BeatBoard = () => {
         newGrid[row][col] = {
           frequency: selectedFrequency.freq,
           name: selectedFrequency.name,
-          isActive: true
+          isActive: true,
+          type: selectedFrequency.type
         };
 
         try {
@@ -309,7 +317,7 @@ export const BeatBoard = () => {
           const oscillator = context.createOscillator();
           const gainNode = context.createGain();
           
-          oscillator.type = selectedFrequency.type as OscillatorType;
+          oscillator.type = selectedFrequency.type;
           oscillator.frequency.setValueAtTime(selectedFrequency.freq, context.currentTime);
           gainNode.gain.setValueAtTime(volume, context.currentTime);
           

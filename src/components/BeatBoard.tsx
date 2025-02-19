@@ -19,12 +19,25 @@ interface Beat {
 
 type BeatGrid = Beat[][];
 
+const brainwaveFrequencies = [
+  { freq: 2, name: "Delta" },
+  { freq: 6, name: "Theta" },
+  { freq: 10, name: "Alpha" },
+  { freq: 20, name: "Beta" },
+  { freq: 40, name: "Gamma" }
+];
+
 const allFrequencies: Frequency[] = [
-  { freq: 40, name: "Gamma", type: "sine" },
-  { freq: 0, name: "Rain", type: "sine" },
-  { freq: 0, name: "Thunder", type: "sine" },
-  { freq: 0, name: "River", type: "sine" },
-  { freq: 0, name: "Forest", type: "sine" }
+  { freq: 880, name: "880 Hz Sine", type: "sine" },
+  { freq: 440, name: "440 Hz Sine", type: "sine" },
+  { freq: 330, name: "330 Hz Square", type: "square" },
+  { freq: 220, name: "220 Hz Square", type: "square" },
+  { freq: 165, name: "165 Hz Triangle", type: "triangle" },
+  { freq: 110, name: "110 Hz Triangle", type: "triangle" },
+  { freq: 55, name: "55 Hz Sawtooth", type: "sawtooth" },
+  { freq: 33, name: "33 Hz Sawtooth", type: "sawtooth" },
+  { freq: 22, name: "22 Hz Sine", type: "sine" },
+  { freq: 11, name: "11 Hz Sine", type: "sine" }
 ];
 
 const natureSounds = [
@@ -485,23 +498,22 @@ export const BeatBoard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-6">
-      <div className="max-w-7xl mx-auto space-y-8">
-        <div className="bg-black/30 backdrop-blur-lg rounded-xl p-6 shadow-xl border border-white/10">
+    <div className="min-h-screen bg-[#0A0A0A] p-6">
+      <div className="max-w-7xl mx-auto">
+        <div className="mb-8">
           <div className="flex flex-col gap-4">
             <div className="flex items-center gap-4 mb-4">
               <Button
                 onClick={togglePlay}
                 variant="default"
                 size="icon"
-                className="w-14 h-14 rounded-full bg-purple-500 hover:bg-purple-600 shadow-lg hover:shadow-purple-500/50 transition-all duration-300"
+                className="w-12 h-12 rounded-full bg-cyan-500 hover:bg-cyan-600"
               >
                 {isPlaying ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6" />}
               </Button>
-              
-              <div className="flex flex-col gap-3 flex-1">
+              <div className="flex flex-col gap-2 flex-1">
                 <div className="flex items-center gap-2 w-full">
-                  <span className="text-sm text-purple-200">Volume</span>
+                  <span className="text-xs text-gray-400">Volume</span>
                   <Slider.Root
                     className="relative flex items-center select-none touch-none w-full h-5"
                     value={[volume]}
@@ -509,15 +521,14 @@ export const BeatBoard = () => {
                     max={1}
                     step={0.01}
                   >
-                    <Slider.Track className="bg-purple-950 relative grow rounded-full h-1">
-                      <Slider.Range className="absolute bg-purple-500 rounded-full h-full" />
+                    <Slider.Track className="bg-gray-800 relative grow rounded-full h-1">
+                      <Slider.Range className="absolute bg-cyan-500 rounded-full h-full" />
                     </Slider.Track>
-                    <Slider.Thumb className="block h-4 w-4 rounded-full bg-white shadow-lg ring-2 ring-purple-500 focus:outline-none focus:ring-purple-500" />
+                    <Slider.Thumb className="block h-4 w-4 rounded-full bg-cyan-500 shadow-lg" />
                   </Slider.Root>
                 </div>
-                
                 <div className="flex items-center gap-2 w-full">
-                  <span className="text-sm text-purple-200">BPM</span>
+                  <span className="text-xs text-gray-400">BPM</span>
                   <Slider.Root
                     className="relative flex items-center select-none touch-none w-full h-5"
                     value={[bpm]}
@@ -526,23 +537,35 @@ export const BeatBoard = () => {
                     max={240}
                     step={1}
                   >
-                    <Slider.Track className="bg-purple-950 relative grow rounded-full h-1">
-                      <Slider.Range className="absolute bg-purple-500 rounded-full h-full" />
+                    <Slider.Track className="bg-gray-800 relative grow rounded-full h-1">
+                      <Slider.Range className="absolute bg-cyan-500 rounded-full h-full" />
                     </Slider.Track>
-                    <Slider.Thumb className="block h-4 w-4 rounded-full bg-white shadow-lg ring-2 ring-purple-500 focus:outline-none focus:ring-purple-500" />
+                    <Slider.Thumb className="block h-4 w-4 rounded-full bg-cyan-500 shadow-lg" />
                   </Slider.Root>
-                  <span className="text-sm text-purple-200 min-w-[3ch]">{bpm}</span>
+                  <span className="text-xs text-cyan-500 min-w-[3ch]">{bpm}</span>
                 </div>
               </div>
-              
-              <Button 
-                onClick={handleSave} 
-                variant="outline" 
-                className="gap-2 border-purple-500 text-purple-200 hover:bg-purple-500/10"
-              >
+              <Button onClick={handleSave} variant="outline" className="gap-2 border-cyan-500 text-cyan-500 hover:bg-cyan-500/10">
                 <Save className="w-4 h-4" />
                 Save Beat
               </Button>
+            </div>
+
+            <div className="flex gap-2 mb-4">
+              {brainwaveFrequencies.map((wave) => (
+                <Button
+                  key={wave.freq}
+                  onClick={() => playBrainwave(wave.freq, wave.name)}
+                  variant="outline"
+                  className={`gap-2 ${
+                    activeWave === wave.name
+                      ? 'bg-cyan-500 text-white'
+                      : 'border-cyan-500 text-cyan-500 hover:bg-cyan-500/10'
+                  }`}
+                >
+                  {wave.name}
+                </Button>
+              ))}
             </div>
 
             <div className="flex gap-2 mb-4">
@@ -553,8 +576,8 @@ export const BeatBoard = () => {
                   variant="outline"
                   className={`gap-2 ${
                     activeNatureSound === sound
-                      ? 'bg-purple-500 text-white'
-                      : 'border-purple-500 text-purple-200 hover:bg-purple-500/10'
+                      ? 'bg-cyan-500 text-white'
+                      : 'border-cyan-500 text-cyan-500 hover:bg-cyan-500/10'
                   }`}
                 >
                   {sound}
@@ -564,62 +587,60 @@ export const BeatBoard = () => {
           </div>
         </div>
 
-        <div className="relative bg-black/30 backdrop-blur-lg rounded-xl p-6 shadow-xl border border-white/10">
-          <div className="flex overflow-x-auto">
-            <div className="w-48 flex flex-col gap-1 pr-4">
-              {allFrequencies.map((freq) => (
-                <button
-                  key={freq.freq}
-                  onClick={() => setSelectedFrequency(freq)}
-                  className={`h-16 flex items-center px-4 rounded transition-all duration-200 ${
-                    selectedFrequency?.freq === freq.freq
-                      ? 'bg-purple-500/20 text-purple-200'
-                      : 'text-purple-200 hover:bg-purple-500/10'
-                  }`}
-                >
-                  <span className="text-sm font-mono">{freq.name}</span>
-                </button>
+        <div className="relative flex overflow-x-auto">
+          <div className="w-48 flex flex-col gap-1 pr-4">
+            {allFrequencies.map((freq) => (
+              <button
+                key={freq.freq}
+                onClick={() => setSelectedFrequency(freq)}
+                className={`h-16 flex items-center px-4 rounded transition-all duration-200 ${
+                  selectedFrequency?.freq === freq.freq
+                    ? 'bg-cyan-500/20 text-cyan-500'
+                    : 'text-cyan-500 hover:bg-cyan-500/10'
+                }`}
+              >
+                <span className="text-sm font-mono">{freq.name}</span>
+              </button>
+            ))}
+          </div>
+
+          <div className="flex-1 relative">
+            <div 
+              className="absolute top-0 bottom-0 w-0.5 bg-cyan-500 transition-all duration-200 z-10"
+              style={{ 
+                left: `${(currentColumn * 100) / 10}%`,
+                transform: 'translateX(-50%)',
+                opacity: isPlaying ? 1 : 0
+              }}
+            />
+
+            <div className="grid grid-cols-10 gap-1">
+              {grid.map((row, rowIndex) => (
+                <div key={rowIndex} className="contents">
+                  {row.map((cell, colIndex) => (
+                    <button
+                      key={`${rowIndex}-${colIndex}`}
+                      onClick={() => handleCellClick(rowIndex, colIndex)}
+                      className={`
+                        relative h-16 rounded border transition-all duration-200
+                        ${cell.isActive 
+                          ? 'bg-cyan-500/20 border-cyan-500' 
+                          : 'bg-transparent border-gray-800 hover:border-cyan-500/50'}
+                        ${currentColumn === colIndex ? 'ring-1 ring-cyan-500 ring-offset-1 ring-offset-[#0A0A0A]' : ''}
+                      `}
+                    />
+                  ))}
+                </div>
               ))}
-            </div>
-
-            <div className="flex-1 relative">
-              <div 
-                className="absolute top-0 bottom-0 w-0.5 bg-purple-500 transition-all duration-200 z-10"
-                style={{ 
-                  left: `${(currentColumn * 100) / 10}%`,
-                  transform: 'translateX(-50%)',
-                  opacity: isPlaying ? 1 : 0
-                }}
-              />
-
-              <div className="grid grid-cols-10 gap-1">
-                {grid.map((row, rowIndex) => (
-                  <div key={rowIndex} className="contents">
-                    {row.map((cell, colIndex) => (
-                      <button
-                        key={`${rowIndex}-${colIndex}`}
-                        onClick={() => handleCellClick(rowIndex, colIndex)}
-                        className={`
-                          relative h-16 rounded border transition-all duration-200
-                          ${cell.isActive 
-                            ? 'bg-purple-500/20 border-purple-500 shadow-lg shadow-purple-500/20' 
-                            : 'bg-transparent border-purple-900 hover:border-purple-500/50'}
-                          ${currentColumn === colIndex ? 'ring-1 ring-purple-500 ring-offset-1 ring-offset-transparent' : ''}
-                        `}
-                      />
-                    ))}
-                  </div>
-                ))}
-              </div>
             </div>
           </div>
         </div>
 
-        <div className="flex justify-end gap-2">
+        <div className="mt-8 flex justify-end gap-2">
           <Button
             variant="outline"
             onClick={clearGrid}
-            className="gap-2 border-purple-500 text-purple-200 hover:bg-purple-500/10"
+            className="gap-2 border-cyan-500 text-cyan-500 hover:bg-cyan-500/10"
           >
             <Trash2 className="w-4 h-4" />
             Clear Grid
@@ -627,7 +648,7 @@ export const BeatBoard = () => {
           <Button
             variant="outline"
             onClick={() => applyPreset('meditation')}
-            className="gap-2 border-purple-500 text-purple-200 hover:bg-purple-500/10"
+            className="gap-2 border-cyan-500 text-cyan-500 hover:bg-cyan-500/10"
           >
             <Zap className="w-4 h-4" />
             Meditation Preset
@@ -635,7 +656,7 @@ export const BeatBoard = () => {
           <Button
             variant="outline"
             onClick={() => applyPreset('focus')}
-            className="gap-2 border-purple-500 text-purple-200 hover:bg-purple-500/10"
+            className="gap-2 border-cyan-500 text-cyan-500 hover:bg-cyan-500/10"
           >
             <Zap className="w-4 h-4" />
             Focus Preset

@@ -197,7 +197,7 @@ export const BeatBoard = () => {
   const [activeNatureSound, setActiveNatureSound] = useState<string | null>(null);
   
   const audioContextRef = useRef<AudioContext | null>(null);
-  const oscillatorsRef = useRef<OscillatorNode[]>([]);
+  const oscillatorsRef = useRef<any[]>([]);
   const gainNodesRef = useRef<GainNode[]>([]);
   const brainwaveOscillatorRef = useRef<OscillatorNode | null>(null);
   const brainwaveGainRef = useRef<GainNode | null>(null);
@@ -211,82 +211,6 @@ export const BeatBoard = () => {
     }
     return audioContextRef.current;
   };
-
-  useEffect(() => {
-    let intervalId: number;
-
-    if (isPlaying) {
-      const context = initAudioContext();
-
-      const playColumn = (column: number) => {
-        oscillatorsRef.current.forEach(osc => {
-          try {
-            osc.stop();
-            osc.disconnect();
-          } catch (e) {
-            console.error('Error stopping oscillator:', e);
-          }
-        });
-        oscillatorsRef.current = [];
-        gainNodesRef.current = [];
-
-        grid.forEach(row => {
-          const cell = row[column];
-          if (cell.isActive && cell.frequency > 0) {
-            try {
-              const oscillator = context.createOscillator();
-              const gainNode = context.createGain();
-
-              const freqConfig = allFrequencies.find(f => f.freq === cell.frequency);
-              oscillator.type = (freqConfig?.type as OscillatorType) || 'sine';
-              oscillator.frequency.setValueAtTime(cell.frequency, context.currentTime);
-              gainNode.gain.setValueAtTime(volume, context.currentTime);
-
-              oscillator.connect(gainNode);
-              gainNode.connect(context.destination);
-
-              oscillator.start();
-              oscillatorsRef.current.push(oscillator);
-              gainNodesRef.current.push(gainNode);
-            } catch (e) {
-              console.error('Error playing frequency:', e);
-            }
-          }
-        });
-      };
-
-      const intervalMs = 60000 / bpm;
-      intervalId = window.setInterval(() => {
-        playColumn(currentColumn);
-        setCurrentColumn(prev => (prev + 1) % 10);
-      }, intervalMs);
-
-      return () => {
-        window.clearInterval(intervalId);
-        oscillatorsRef.current.forEach(osc => {
-          try {
-            osc.stop();
-            osc.disconnect();
-          } catch (e) {
-            console.error('Error cleaning up oscillator:', e);
-          }
-        });
-        oscillatorsRef.current = [];
-      };
-    }
-  }, [isPlaying, grid, volume, currentColumn, bpm]);
-
-  useEffect(() => {
-    gainNodesRef.current.forEach(gain => {
-      gain.gain.setValueAtTime(volume, audioContextRef.current?.currentTime || 0);
-    });
-    if (brainwaveGainRef.current) {
-      brainwaveGainRef.current.gain.setValueAtTime(volume, audioContextRef.current?.currentTime || 0);
-    }
-    if (natureSoundGainRef.current) {
-      natureSoundGainRef.current.gain.setValueAtTime(volume, audioContextRef.current?.currentTime || 0);
-    }
-  }, [volume]);
 
   const handleCellClick = useCallback((row: number, col: number) => {
     if (!selectedFrequency) return;
@@ -311,31 +235,112 @@ export const BeatBoard = () => {
           isActive: true,
           type: selectedFrequency.type
         };
-
-        try {
-          const context = audioContextRef.current!;
-          const oscillator = context.createOscillator();
-          const gainNode = context.createGain();
-          
-          oscillator.type = selectedFrequency.type;
-          oscillator.frequency.setValueAtTime(selectedFrequency.freq, context.currentTime);
-          gainNode.gain.setValueAtTime(volume, context.currentTime);
-          
-          oscillator.connect(gainNode);
-          gainNode.connect(context.destination);
-          
-          oscillator.start();
-          setTimeout(() => {
-            oscillator.stop();
-            oscillator.disconnect();
-          }, 100);
-        } catch (e) {
-          console.error('Error playing preview sound:', e);
-        }
       }
       return newGrid;
     });
-  }, [selectedFrequency, volume]);
+  }, [selectedFrequency]);
+
+  useEffect(() => {
+    let intervalId: number;
+
+    if (isPlaying) {
+      const context = initAudioContext();
+
+      const playColumn = (column: number) => {
+        // Clean up previous oscillators with proper release
+        oscillatorsRef.current.forEach(osc => {
+          const now = context.currentTime;
+          const gainNode = osc.gainNode;
+          if (gainNode) {
+            // Add a gentle release to avoid clicks
+            gainNode.gain.setValueAtTime(gainNode.gain.value, now);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+            setTimeout(() => {
+              try {
+                osc.oscillator.stop();
+                osc.oscillator.disconnect();
+                gainNode.disconnect();
+              } catch (e) {
+                console.error('Error stopping oscillator:', e);
+              }
+            }, 100);
+          }
+        });
+        oscillatorsRef.current = [];
+
+        grid.forEach(row => {
+          const cell = row[column];
+          if (cell.isActive && cell.frequency > 0) {
+            try {
+              const oscillator = context.createOscillator();
+              const gainNode = context.createGain();
+              const now = context.currentTime;
+
+              const freqConfig = allFrequencies.find(f => f.freq === cell.frequency);
+              oscillator.type = (freqConfig?.type as OscillatorType) || 'sine';
+              oscillator.frequency.setValueAtTime(cell.frequency, now);
+
+              // Add attack and sustain to make sound more melodious
+              gainNode.gain.setValueAtTime(0, now);
+              gainNode.gain.linearRampToValueAtTime(volume, now + 0.02); // Quick attack
+              gainNode.gain.setValueAtTime(volume * 0.7, now + 0.02); // Sustain at slightly lower volume
+
+              oscillator.connect(gainNode);
+              gainNode.connect(context.destination);
+
+              oscillator.start(now);
+              oscillatorsRef.current.push({ 
+                oscillator, 
+                gainNode,
+                startTime: now 
+              });
+            } catch (e) {
+              console.error('Error playing frequency:', e);
+            }
+          }
+        });
+      };
+
+      const intervalMs = 60000 / bpm;
+      intervalId = window.setInterval(() => {
+        playColumn(currentColumn);
+        setCurrentColumn(prev => (prev + 1) % 10);
+      }, intervalMs);
+
+      return () => {
+        window.clearInterval(intervalId);
+        const now = context.currentTime;
+        oscillatorsRef.current.forEach(({ oscillator, gainNode }) => {
+          try {
+            if (gainNode) {
+              gainNode.gain.setValueAtTime(gainNode.gain.value, now);
+              gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+            }
+            setTimeout(() => {
+              oscillator.stop();
+              oscillator.disconnect();
+              gainNode?.disconnect();
+            }, 100);
+          } catch (e) {
+            console.error('Error cleaning up oscillator:', e);
+          }
+        });
+        oscillatorsRef.current = [];
+      };
+    }
+  }, [isPlaying, grid, volume, currentColumn, bpm]);
+
+  useEffect(() => {
+    gainNodesRef.current.forEach(gain => {
+      gain.gain.setValueAtTime(volume, audioContextRef.current?.currentTime || 0);
+    });
+    if (brainwaveGainRef.current) {
+      brainwaveGainRef.current.gain.setValueAtTime(volume, audioContextRef.current?.currentTime || 0);
+    }
+    if (natureSoundGainRef.current) {
+      natureSoundGainRef.current.gain.setValueAtTime(volume, audioContextRef.current?.currentTime || 0);
+    }
+  }, [volume]);
 
   const playBrainwave = (frequency: number, name: string) => {
     const context = initAudioContext();
@@ -466,8 +471,9 @@ export const BeatBoard = () => {
     } else {
       oscillatorsRef.current.forEach(osc => {
         try {
-          osc.stop();
-          osc.disconnect();
+          osc.oscillator.stop();
+          osc.oscillator.disconnect();
+          osc.gainNode.disconnect();
         } catch (e) {
           console.error('Error stopping oscillator:', e);
         }

@@ -49,13 +49,14 @@ const natureSounds = [
 
 const createInitialGrid = (frequencies: Frequency[]): BeatGrid => {
   const grid: BeatGrid = [];
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < frequencies.length; i++) {
     grid[i] = [];
     for (let j = 0; j < 10; j++) {
       grid[i][j] = {
         frequency: 0,
         name: '',
-        isActive: false
+        isActive: false,
+        type: frequencies[i].type
       };
     }
   }
@@ -222,18 +223,21 @@ export const BeatBoard = () => {
       newGrid[row] = [...newGrid[row]];
       const currentCell = newGrid[row][col];
       
-      if (currentCell.isActive && currentCell.frequency === selectedFrequency.freq) {
+      const rowFrequency = allFrequencies[row];
+      
+      if (currentCell.isActive) {
         newGrid[row][col] = {
           frequency: 0,
           name: '',
-          isActive: false
+          isActive: false,
+          type: rowFrequency.type
         };
       } else {
         newGrid[row][col] = {
-          frequency: selectedFrequency.freq,
-          name: selectedFrequency.name,
+          frequency: rowFrequency.freq,
+          name: rowFrequency.name,
           isActive: true,
-          type: selectedFrequency.type
+          type: rowFrequency.type
         };
       }
       return newGrid;
@@ -268,16 +272,17 @@ export const BeatBoard = () => {
 
         grid.forEach((row, rowIndex) => {
           const cell = row[column];
-          if (cell.isActive && cell.frequency > 0) {
+          if (cell.isActive) {
             try {
+              const rowFrequency = allFrequencies[rowIndex];
+              if (!rowFrequency) return;
+
               const oscillator = context.createOscillator();
               const gainNode = context.createGain();
               const now = context.currentTime;
 
-              const freqConfig = allFrequencies.find(f => f.freq === cell.frequency);
-              
-              oscillator.type = cell.type || freqConfig?.type || 'sine';
-              oscillator.frequency.setValueAtTime(cell.frequency, now);
+              oscillator.type = rowFrequency.type;
+              oscillator.frequency.setValueAtTime(rowFrequency.freq, now);
 
               gainNode.gain.setValueAtTime(0, now);
               gainNode.gain.linearRampToValueAtTime(volume, now + 0.02);
@@ -292,11 +297,11 @@ export const BeatBoard = () => {
                 oscillator,
                 gainNode,
                 startTime: now,
-                frequency: cell.frequency,
-                type: cell.type
+                frequency: rowFrequency.freq,
+                type: rowFrequency.type
               });
 
-              console.log(`Playing cell at row ${rowIndex}, column ${column}: frequency ${cell.frequency}Hz, type ${cell.type}`);
+              console.log(`Playing cell at row ${rowIndex}, column ${column}: frequency ${rowFrequency.freq}Hz, type ${rowFrequency.type}`);
             } catch (e) {
               console.error('Error playing frequency:', e);
             }

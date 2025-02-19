@@ -247,12 +247,10 @@ export const BeatBoard = () => {
       const context = initAudioContext();
 
       const playColumn = (column: number) => {
-        // Clean up previous oscillators with proper release
         oscillatorsRef.current.forEach(osc => {
           const now = context.currentTime;
           const gainNode = osc.gainNode;
           if (gainNode) {
-            // Add a gentle release to avoid clicks
             gainNode.gain.setValueAtTime(gainNode.gain.value, now);
             gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
             setTimeout(() => {
@@ -268,7 +266,7 @@ export const BeatBoard = () => {
         });
         oscillatorsRef.current = [];
 
-        grid.forEach(row => {
+        grid.forEach((row, rowIndex) => {
           const cell = row[column];
           if (cell.isActive && cell.frequency > 0) {
             try {
@@ -277,23 +275,28 @@ export const BeatBoard = () => {
               const now = context.currentTime;
 
               const freqConfig = allFrequencies.find(f => f.freq === cell.frequency);
-              oscillator.type = (freqConfig?.type as OscillatorType) || 'sine';
+              
+              oscillator.type = cell.type || freqConfig?.type || 'sine';
               oscillator.frequency.setValueAtTime(cell.frequency, now);
 
-              // Add attack and sustain to make sound more melodious
               gainNode.gain.setValueAtTime(0, now);
-              gainNode.gain.linearRampToValueAtTime(volume, now + 0.02); // Quick attack
-              gainNode.gain.setValueAtTime(volume * 0.7, now + 0.02); // Sustain at slightly lower volume
+              gainNode.gain.linearRampToValueAtTime(volume, now + 0.02);
+              gainNode.gain.setValueAtTime(volume * 0.7, now + 0.02);
 
               oscillator.connect(gainNode);
               gainNode.connect(context.destination);
 
               oscillator.start(now);
-              oscillatorsRef.current.push({ 
-                oscillator, 
+              
+              oscillatorsRef.current.push({
+                oscillator,
                 gainNode,
-                startTime: now 
+                startTime: now,
+                frequency: cell.frequency,
+                type: cell.type
               });
+
+              console.log(`Playing cell at row ${rowIndex}, column ${column}: frequency ${cell.frequency}Hz, type ${cell.type}`);
             } catch (e) {
               console.error('Error playing frequency:', e);
             }
